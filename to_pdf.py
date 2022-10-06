@@ -22,15 +22,15 @@ class ConvertPdf:
     from_path = None # 읽을 폴더 경로
     to_path = None # 쓸 폴더 경로
     all_files = None # 모든 파일들의 이름을 담은 리스트
-    logging = None
-    def __init__(self,from_path,to_path,logging):
-        self.from_path = from_path
-        self.to_path = to_path
+    def __init__(self,from_path, to_path, d):
+        self.from_path = from_path + "/" + d
+        self.to_path = to_path + "/" + d
 
-        self.all_files = os.listdir(from_path)
-        self.logging = logging
+        self.all_files = os.listdir(self.from_path)
         self.error_dict = {"error_file":[],"error_message":[]}
 
+        if not os.path.exists(self.to_path):
+            os.mkdir(self.to_path)
 
         for file in self.all_files:
             print(file)
@@ -43,7 +43,8 @@ class ConvertPdf:
                 self.hwp2pdf(file)
             elif file_type in ('png','jpg','jpeg','jfif',"bmp"):
                 self.img2pdf(file)
-            elif file_type in ('xlsx','xls'):
+            elif file_type in\
+                    ('xlsx','xls'):
                 self.exl2pdf_v2(file)
             elif file_type in ('txt'):
                 self.text2pdf(file)
