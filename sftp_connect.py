@@ -23,7 +23,7 @@ class Sftp:
         self.local_from_path = local_from_folder + "/" + d
         self.local_to_path = local_to_folder + "/" + d
         self.remote_from_path = env + "/pfundsfile/dgbank/" + d
-        self.remote_to_path = env + "/pfundsfile/dgbank/" + d + "/PDF"
+        self.remote_to_path = env + "/pfundsfile/dgbank/" + d + "/pdf"
 
     def get_file_from_sftp(self):
         '''

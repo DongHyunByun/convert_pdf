@@ -2,6 +2,8 @@ import os
 import traceback
 import pandas as pd
 
+
+import time
 # hwp
 import win32com.client as win32
 import win32gui
@@ -37,14 +39,18 @@ class ConvertPdf:
             file_type = os.path.splitext(file)[1][1:]
             file_type = file_type.lower()
 
+            if os.path.getsize(os.path.join(self.from_path,file))==0:
+                self.error_dict["error_file"].append(file)
+                self.error_dict["error_message"].append("zero byte")
+                continue
+
             if file_type in ("pdf"):
                 self.pdf2pdf(file)
             elif file_type in ('hwp'):
                 self.hwp2pdf(file)
             elif file_type in ('png','jpg','jpeg','jfif',"bmp"):
                 self.img2pdf(file)
-            elif file_type in\
-                    ('xlsx','xls'):
+            elif file_type in ('xlsx','xls'):
                 self.exl2pdf_v2(file)
             elif file_type in ('txt'):
                 self.text2pdf(file)
@@ -56,12 +62,25 @@ class ConvertPdf:
                 self.error_dict["error_file"].append(file)
                 self.error_dict["error_message"].append("no type converter")
 
+    def get_file_name(self,full_name):
+        return full_name.split(".")[0]
+
     def change_file_name_pdf(self,file_name,to_type="pdf"):
         L = file_name.split(".")
         L[-1]=to_type
         return ".".join(L)
 
     def to_csv_error_file(self,path):
+        all_files_before = set(map(self.get_file_name,self.all_files))
+        all_files_after = set(map(self.get_file_name,os.listdir(self.to_path)))
+        error_files = set(map(self.get_file_name, self.error_dict["error_file"]))
+
+        remain_error_files = list(all_files_before - all_files_after - error_files)
+
+        if remain_error_files:
+            self.error_dict["error_file"].extend(remain_error_files)
+            self.error_dict["error_message"].extend([None for _ in range(len(remain_error_files))])
+
         pd.DataFrame(self.error_dict).to_csv(path,encoding="utf-8",index=False)
 
     def text2pdf(self,file_name):
@@ -88,15 +107,29 @@ class ConvertPdf:
             self.error_dict["error_message"].append(traceback.format_exc())
 
     def ppt2pdf(self,file_name):
-        powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
-        powerpoint.Visible = True
+        try:
+            powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
+            powerpoint.Visible = True
 
-        slides = powerpoint.Presentations.Open(os.path.join(self.from_path, file_name))
-        pdf_file_name = self.change_file_name_pdf(file_name)
-        full_to_path = os.path.join(self.to_path, pdf_file_name).replace("/", "\\")
+            slides = powerpoint.Presentations.Open(os.path.join(self.from_path, file_name))
+            pdf_file_name = self.change_file_name_pdf(file_name)
+            full_to_path = os.path.join(self.to_path, pdf_file_name).replace("/", "\\")
 
-        slides.SaveAs(full_to_path, FileFormat=32)
-        slides.Close()
+            slides.SaveAs(full_to_path, FileFormat=32)
+            slides.Close()
+            powerpoint.Quit()
+        except:
+            try:
+                slides.Close()
+            except:
+                pass
+            try:
+                powerpoint.Quit()
+            except:
+                pass
+
+            self.error_dict["error_file"].append(file_name)
+            self.error_dict["error_message"].append(traceback.format_exc())
 
     def pdf2pdf(self,file_name):
         try:
@@ -108,12 +141,6 @@ class ConvertPdf:
 
     def hwp2pdf(self, file_name):
         try:
-            if file_name.endswith("hwpx"):
-                hwp_file_name = self.change_file_name_pdf(file_name, "hwp")
-                os.rename(os.path.join(self.from_path,file_name),os.path.join(self.from_path,hwp_file_name))
-                file_name = hwp_file_name
-
-            # hwp용
             hwp = win32.gencache.EnsureDispatch("HWPFrame.HwpObject")  # hwp 창열기
             hwp.RegisterModule('FilePathCheckDLL', 'AutomationModule')  # 보안모듈 삭제
             win32gui.FindWindow(None, 'Noname 1 - HWP')
@@ -121,8 +148,8 @@ class ConvertPdf:
             hwp.Open(os.path.join(self.from_path, file_name))
             pdf_file_name = self.change_file_name_pdf(file_name)
             hwp.SaveAs(os.path.join(self.to_path, pdf_file_name), "PDF")
+            # print(file_name, "=>", pdf_file_name)AJF
             hwp.Quit()
-            # print(file_name, "=>", pdf_file_name)
         except:
             self.error_dict["error_file"].append(file_name)
             self.error_dict["error_message"].append(traceback.format_exc())
@@ -155,22 +182,37 @@ class ConvertPdf:
                 os.remove(os.path.join(self.from_path, file_name))
                 file_name = xlsx_file_name
 
-
-
             wb = op.load_workbook(self.from_path + "/" + file_name)  # openptxl workbook생성
-            ws_list = wb.sheetnames  # 해당 workbook의 시트명을 리스트로 받음
-            file_name = file_name.replace(".xlsx", "")  # 파일명을 저장하기 위해 문자열에서 확장자를 제거
-            result = [self.from_path + "/" + file_name, file_name, ws_list]
+
+            # 활성시트만 저장
+            ws_list = []
+            xls = pd.ExcelFile(self.from_path + "/" + file_name)
+            sheets = xls.book.sheets()
+            for sheet in sheets:
+                if sheet.visibility==0:
+                    ws_list.append(sheet.name)
 
             excel = win32.Dispatch("Excel.Application")
-            wb = excel.Workbooks.Open(result[0])  # 0번째는 파일경로
-            wb.Worksheets(result[2]).Select()  # 2번쨰 요소는 시트명
+            wb = excel.Workbooks.Open(self.from_path + "/" + file_name)
 
-            wb.ActiveSheet.ExportAsFixedFormat(0, self.to_path + "/" + result[1] + ".pdf")  # 파일명, 시트명으로 pdf 파일 저장
+            for ws in ws_list:
+                wb.Worksheets(ws_list).Select()
+
+            xlsx_file_name = self.change_file_name_pdf(file_name, "pdf")
+            wb.ActiveSheet.ExportAsFixedFormat(0, self.to_path + "/" + xlsx_file_name)  # 파일명, 시트명으로 pdf 파일 저장
 
             wb.Close(False)  # workbook 닫기. True일 경우 그 상태를 저장한다.
             excel.Quit()  # excel 닫기
         except:
+            try:
+                wb.Close(False)
+            except:
+                pass
+            try:
+                excel.Quit()
+            except:
+                pass
+
             self.error_dict["error_file"].append(file_name)
             self.error_dict["error_message"].append(traceback.format_exc())
 
