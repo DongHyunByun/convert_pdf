@@ -8,7 +8,7 @@
  
 3. **내용**
     1. SFTP서버를 통해 파일들을 다운로드한다. (from_folder에 저장)
-    2. 파일들을 PDF로 변환한다.변환할 수 있는 형식은 다음과 같다. (to_folder에 저장)
+    2. 파일들을 PDF로 변환한다.변환할 수 있는 형식은 다음과 같다. (to_folder에 저장)  
     ![image](https://user-images.githubusercontent.com/50386280/196077412-5016985a-47cd-4bbd-a521-0d7b99cd0c3e.png)
     3. 변환한 파일을 sftp서버로 보낸다.  
 
