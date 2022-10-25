@@ -9,8 +9,7 @@ from sftp_connect import Sftp
 if __name__ == '__main__':
     args = argparse.ArgumentParser()
     args.add_argument("--env", type=str, default="test",
-                      help="환"
-                           "경, 운영의 경우 prod")
+                      help="환경, 운영의 경우 prod")
     args.add_argument("--d", type=str, default=datetime.today().strftime("%Y%m%d"),
                       help="수행할 날짜 YYYYMMDD 형식")
     config = args.parse_args()
@@ -25,7 +24,7 @@ if __name__ == '__main__':
     sftp = Sftp(config.env, config.d, local_from_folder, local_to_folder)
     sftp.get_file_from_sftp() # remote -> local 파일복사
 
-    # [변환]`
+    # [변환]
     converter = ConvertPdf(local_from_folder, local_to_folder, config.d)
     converter.to_csv_error_file(error_log_path)
 

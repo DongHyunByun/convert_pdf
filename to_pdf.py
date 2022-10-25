@@ -30,12 +30,16 @@ class ConvertPdf:
 
         self.all_files = os.listdir(self.from_path)
         self.error_dict = {"error_file":[],"error_message":[]}
-
+        coverted_files = set(os.listdir(self.to_path))
         if not os.path.exists(self.to_path):
             os.mkdir(self.to_path)
 
         for file in self.all_files:
-            print(file)
+            print(file,end='')
+            if self.change_file_name_pdf(file) in coverted_files:
+                print("pass")
+                continue
+            print()
             file_type = os.path.splitext(file)[1][1:]
             file_type = file_type.lower()
 
@@ -46,11 +50,11 @@ class ConvertPdf:
 
             if file_type in ("pdf"):
                 self.pdf2pdf(file)
-            elif file_type in ('hwp'):
+            elif file_type in ('hwp','hwpx'):
                 self.hwp2pdf(file)
             elif file_type in ('png','jpg','jpeg','jfif',"bmp"):
                 self.img2pdf(file)
-            elif file_type in ('xlsx','xls'):
+            elif file_type in ('xlsx','xls','xlsm'):
                 self.exl2pdf_v2(file)
             elif file_type in ('txt'):
                 self.text2pdf(file)
@@ -148,7 +152,7 @@ class ConvertPdf:
             hwp.Open(os.path.join(self.from_path, file_name))
             pdf_file_name = self.change_file_name_pdf(file_name)
             hwp.SaveAs(os.path.join(self.to_path, pdf_file_name), "PDF")
-            # print(file_name, "=>", pdf_file_name)AJF
+            # print(file_name, "=>", pdf_file_name)
             hwp.Quit()
         except:
             self.error_dict["error_file"].append(file_name)
