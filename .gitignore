@@ -9,3 +9,5 @@ test_PDF/
 log_folder/
 
 sftp_info.py
+
+__pycache__/

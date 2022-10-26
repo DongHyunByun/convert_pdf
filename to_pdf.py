@@ -30,9 +30,9 @@ class ConvertPdf:
 
         self.all_files = os.listdir(self.from_path)
         self.error_dict = {"error_file":[],"error_message":[]}
-        coverted_files = set(os.listdir(self.to_path))
         if not os.path.exists(self.to_path):
             os.mkdir(self.to_path)
+        coverted_files = set(os.listdir(self.to_path))
 
         for file in self.all_files:
             print(file,end='')

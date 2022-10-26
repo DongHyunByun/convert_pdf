@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     local_from_folder = "C:/convert_to_pdf_3/from_folder"
     local_to_folder = "C:/convert_to_pdf_3/PDF"
-    error_log_path = "C:/convert_to_pdf_3/log_folder/" + config.d + ".csv"
+    error_log_path = "C:/convert_to_pdf_3/log_folder/log_" + config.d + ".csv"
 
     start = time.time()
 
