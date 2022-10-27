@@ -11,7 +11,7 @@ import win32gui
 import openpyxl as op
 # pdf
 import shutil
-# doc
+# doc,ppt
 import comtypes.client
 # text
 import aspose.words as aw
@@ -40,6 +40,10 @@ class ConvertPdf:
                 print("pass")
                 continue
             print()
+
+            if file=="PDF":
+                continue
+
             file_type = os.path.splitext(file)[1][1:]
             file_type = file_type.lower()
 
