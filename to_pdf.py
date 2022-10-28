@@ -30,45 +30,46 @@ class ConvertPdf:
 
         self.all_files = os.listdir(self.from_path)
         self.error_dict = {"error_file":[],"error_message":[]}
+
+        self.run_time = 2 # 파일당 변환 시도 횟수
+
         if not os.path.exists(self.to_path):
             os.mkdir(self.to_path)
-        coverted_files = set(os.listdir(self.to_path))
 
         for file in self.all_files:
-            print(file,end='')
-            if self.change_file_name_pdf(file) in coverted_files:
-                print("pass")
-                continue
-            print()
+            print(file)
+            for t in range(self.run_time):
+                if self.change_file_name_pdf(file) in os.listdir(self.to_path):
+                    print(file," : converted already")
+                    break
 
-            if file=="PDF":
-                continue
+                if file=="PDF" or file[:2]=="~$":
+                    break
 
-            file_type = os.path.splitext(file)[1][1:]
-            file_type = file_type.lower()
+                if os.path.getsize(os.path.join(self.from_path,file))==0:
+                    self.error_dict["error_file"].append(file)
+                    self.error_dict["error_message"].append("zero byte")
+                    break
 
-            if os.path.getsize(os.path.join(self.from_path,file))==0:
-                self.error_dict["error_file"].append(file)
-                self.error_dict["error_message"].append("zero byte")
-                continue
-
-            if file_type in ("pdf"):
-                self.pdf2pdf(file)
-            elif file_type in ('hwp','hwpx'):
-                self.hwp2pdf(file)
-            elif file_type in ('png','jpg','jpeg','jfif',"bmp"):
-                self.img2pdf(file)
-            elif file_type in ('xlsx','xls','xlsm'):
-                self.exl2pdf_v2(file)
-            elif file_type in ('txt'):
-                self.text2pdf(file)
-            elif file_type in ('docx'):
-                self.word2pdf(file)
-            elif file_type in ('ppt','pptx'):
-                self.ppt2pdf(file)
-            else:
-                self.error_dict["error_file"].append(file)
-                self.error_dict["error_message"].append("no type converter")
+                file_type = os.path.splitext(file)[1][1:].lower()
+                if file_type in ("pdf"):
+                    self.pdf2pdf(file,t)
+                elif file_type in ('hwp','hwpx'):
+                    self.hwp2pdf_print(file,t)
+                elif file_type in ('png','jpg','jpeg','jfif',"bmp"):
+                    self.img2pdf(file,t)
+                elif file_type in ('xlsx','xls','xlsm'):
+                    self.exl2pdf_v2(file,t)
+                elif file_type in ('txt'):
+                    self.text2pdf(file,t)
+                elif file_type in ('docx'):
+                    self.word2pdf(file,t)
+                elif file_type in ('ppt','pptx'):
+                    self.ppt2pdf(file,t)
+                else:
+                    self.error_dict["error_file"].append(file)
+                    self.error_dict["error_message"].append("no type converter")
+                    break
 
     def get_file_name(self,full_name):
         return full_name.split(".")[0]
@@ -91,16 +92,17 @@ class ConvertPdf:
 
         pd.DataFrame(self.error_dict).to_csv(path,encoding="utf-8",index=False)
 
-    def text2pdf(self,file_name):
+    def text2pdf(self,file_name,t):
         try:
             doc = aw.Document(os.path.join(self.from_path, file_name))
             pdf_file_name = self.change_file_name_pdf(file_name)
             doc.save(os.path.join(self.to_path, pdf_file_name))
         except:
-            self.error_dict["error_file"].append(file_name)
-            self.error_dict["error_message"].append(traceback.format_exc())
+            if t == self.all_files - 1:
+                self.error_dict["error_file"].append(file_name)
+                self.error_dict["error_message"].append(traceback.format_exc())
 
-    def word2pdf(self,file_name):
+    def word2pdf(self,file_name,t):
         try:
             word = comtypes.client.CreateObject('Word.Application')
             word.Visible = True
@@ -111,10 +113,20 @@ class ConvertPdf:
             doc.Close()
             word.Quit()
         except:
-            self.error_dict["error_file"].append(file_name)
-            self.error_dict["error_message"].append(traceback.format_exc())
+            try:
+                doc.Close()
+            except:
+                pass
+            try:
+                word.Quit()
+            except:
+                pass
 
-    def ppt2pdf(self,file_name):
+            if t == self.run_time - 1:
+                self.error_dict["error_file"].append(file_name)
+                self.error_dict["error_message"].append(traceback.format_exc())
+
+    def ppt2pdf(self,file_name,t):
         try:
             powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
             powerpoint.Visible = True
@@ -136,18 +148,21 @@ class ConvertPdf:
             except:
                 pass
 
-            self.error_dict["error_file"].append(file_name)
-            self.error_dict["error_message"].append(traceback.format_exc())
+            if t == self.run_time - 1:
+                self.error_dict["error_file"].append(file_name)
+                self.error_dict["error_message"].append(traceback.format_exc())
 
-    def pdf2pdf(self,file_name):
+    def pdf2pdf(self,file_name,t):
         try:
-            shutil.copyfile(os.path.join(self.from_path, file_name),os.path.join(self.to_path, file_name))
+            pdf_file_name = self.change_file_name_pdf(file_name)
+            shutil.copyfile(os.path.join(self.from_path, file_name),os.path.join(self.to_path, pdf_file_name))
             # print(file_name, "=>", file_name)
         except:
-            self.error_dict["error_file"].append(file_name)
-            self.error_dict["error_message"].append(traceback.format_exc())
+            if t == self.run_time - 1:
+                self.error_dict["error_file"].append(file_name)
+                self.error_dict["error_message"].append(traceback.format_exc())
 
-    def hwp2pdf(self, file_name):
+    def hwp2pdf(self, file_name, t):
         try:
             hwp = win32.gencache.EnsureDispatch("HWPFrame.HwpObject")  # hwp 창열기
             hwp.RegisterModule('FilePathCheckDLL', 'AutomationModule')  # 보안모듈 삭제
@@ -159,24 +174,108 @@ class ConvertPdf:
             # print(file_name, "=>", pdf_file_name)
             hwp.Quit()
         except:
-            self.error_dict["error_file"].append(file_name)
-            self.error_dict["error_message"].append(traceback.format_exc())
+            try:
+                hwp.Quit()
+            except:
+                pass
 
-    def img2pdf(self,file_name):
+            if t == self.run_time - 1:
+                self.error_dict["error_file"].append(file_name)
+                self.error_dict["error_message"].append(traceback.format_exc())
+
+    def hwp2pdf_print(self, file_name, t):
+        try:
+            hwp = win32.gencache.EnsureDispatch("HWPFrame.HwpObject")  # hwp 창열기
+            hwp.RegisterModule('FilePathCheckDLL', 'AutomationModule')
+
+            hwp.Open(os.path.join(self.from_path, file_name))
+            pdf_file_name = self.change_file_name_pdf(file_name)
+
+            act = hwp.CreateAction("Print")
+            pset = act.CreateSet()
+            act.GetDefault(pset)
+            pset.SetItem("PrintMethod",0) # 0:보통출력, 4:2쪽모아찍기
+            pset.SetItem("FileName",os.path.join(self.to_path, pdf_file_name))
+            pset.SetItem("printerName","Hancom PDF")
+            act.Execute(pset)
+
+            hwp.Quit()
+            # hwp.XHwpDocuments.Item(0).XHwpPrint.filename = os.path.join(self.to_path, pdf_file_name)
+            # hwp.XHwpDocuments.Item(0).XHwpPrint.RunToPDF()
+            # hwp.Quit()
+        except:
+            try:
+                hwp.Quit()
+            except:
+                pass
+
+            if t == self.run_time - 1:
+                self.error_dict["error_file"].append(file_name)
+                self.error_dict["error_message"].append(traceback.format_exc())
+
+    def img2pdf(self,file_name,t):
         try:
             im = Image.open(os.path.join(self.from_path,file_name)).convert("RGB")
             pdf_file_name = self.change_file_name_pdf(file_name)
             im.save(os.path.join(self.to_path,pdf_file_name),save_all=True)
             # print(file_name, "=>", pdf_file_name)
         except:
-            self.error_dict["error_file"].append(file_name)
-            self.error_dict["error_message"].append(traceback.format_exc())
+            if t == self.run_time - 1:
+                self.error_dict["error_file"].append(file_name)
+                self.error_dict["error_message"].append(traceback.format_exc())
 
-    def exl2pdf_v2(self,file_name):
+    # def exl2pdf_print(self,file_name,t):
+    #     try:
+    #         if file_name.endswith("xls"):
+    #             excel2 = win32.gencache.EnsureDispatch('Excel.application')
+    #             wb = excel2.Workbooks.Open(os.path.join(self.from_path, file_name))
+    #             xlsx_file_name = self.change_file_name_pdf(file_name, "xlsx")
+    #
+    #             full_from_path = os.path.join(self.from_path, xlsx_file_name).replace("/", "\\")
+    #             wb.SaveAs(full_from_path, FileFormat=51)
+    #             wb.Close()
+    #             excel2.Application.Quit()
+    #
+    #             os.remove(os.path.join(self.from_path, file_name))
+    #             file_name = xlsx_file_name
+    #
+    #         wb = op.load_workbook(self.from_path + "/" + file_name)  # openptxl workbook생성
+    #
+    #         # 활성시트만 저장
+    #         ws_list = []
+    #         xls = pd.ExcelFile(self.from_path + "/" + file_name)
+    #         sheets = xls.book.sheets()
+    #         for sheet in sheets:
+    #             if sheet.visibility==0:
+    #                 ws_list.append(sheet.name)
+    #
+    #         excel = win32.Dispatch("Excel.Application")
+    #         wb = excel.Workbooks.Open(self.from_path + "/" + file_name)
+    #
+    #         for ws in ws_list:
+    #             wb.Worksheets(ws_list).Select()
+    #
+    #         xlsx_file_name = self.change_file_name_pdf(file_name, "pdf")
+    #         wb.ActiveSheet.ExportAsFixedFormat(0, self.to_path + "/" + xlsx_file_name)  # 파일명, 시트명으로 pdf 파일 저장
+    #
+    #         wb.Close(False)  # workbook 닫기. True일 경우 그 상태를 저장한다.
+    #         excel.Quit()  # excel 닫기
+    #     except:
+    #         try:
+    #             wb.Close(False)
+    #         except:
+    #             pass
+    #         try:
+    #             excel.Quit()
+    #         except:
+    #             pass
+    #
+    #         if t == self.run_time - 1:
+    #             self.error_dict["error_file"].append(file_name)
+    #             self.error_dict["error_message"].append(traceback.format_exc())
+
+    def exl2pdf_v2(self,file_name,t):
         try:
-            if file_name[:2] == "~$":
-                return
-
             if file_name.endswith("xls"):
                 excel2 = win32.gencache.EnsureDispatch('Excel.application')
                 wb = excel2.Workbooks.Open(os.path.join(self.from_path, file_name))
@@ -190,21 +289,20 @@ class ConvertPdf:
                 os.remove(os.path.join(self.from_path, file_name))
                 file_name = xlsx_file_name
 
-            wb = op.load_workbook(self.from_path + "/" + file_name)  # openptxl workbook생성
-
             # 활성시트만 저장
-            ws_list = []
-            xls = pd.ExcelFile(self.from_path + "/" + file_name)
-            sheets = xls.book.sheets()
-            for sheet in sheets:
-                if sheet.visibility==0:
-                    ws_list.append(sheet.name)
+            def get_active_sheets():
+                ws_list = []
+                xls = pd.ExcelFile(self.from_path + "/" + file_name)
+                sheets = xls.book.sheets()
+                for sheet in sheets:
+                    if sheet.visibility==0:
+                        ws_list.append(sheet.name)
+                return ws_list
 
             excel = win32.Dispatch("Excel.Application")
             wb = excel.Workbooks.Open(self.from_path + "/" + file_name)
-
-            for ws in ws_list:
-                wb.Worksheets(ws_list).Select()
+            ws_list = get_active_sheets()
+            wb.Worksheets(ws_list).Select()
 
             xlsx_file_name = self.change_file_name_pdf(file_name, "pdf")
             wb.ActiveSheet.ExportAsFixedFormat(0, self.to_path + "/" + xlsx_file_name)  # 파일명, 시트명으로 pdf 파일 저장
@@ -221,9 +319,9 @@ class ConvertPdf:
             except:
                 pass
 
-            self.error_dict["error_file"].append(file_name)
-            self.error_dict["error_message"].append(traceback.format_exc())
-
+            if t == self.run_time - 1:
+                self.error_dict["error_file"].append(file_name)
+                self.error_dict["error_message"].append(traceback.format_exc())
 
     def exl2pdf(self):
         def excelInfo(filepath):
